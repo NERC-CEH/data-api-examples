@@ -1,0 +1,148 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Countryside Survey data-api demo
+
+This r notebook demonstrates how to get data from the Countryside Survey data-api.
+
+It can be run from : https://rstudio.cloud/project/1625604
+
+The code blocks can be run by clicking the *Run* button within each block.
+
+## Find out more about the Countryside Survey api
+
+- Full information about Countryside Survey data: https://catalogue.ceh.ac.uk/documents/2069de82-619d-4751-9904-aec8500d07e6
+- Information about Countryside Survey data api and more examples: https://data-eidc.ceh.ac.uk/docs/cs
+
+## Step 1: install dependencies
+
+```{r}
+library(jsonlite) # tools to work with the json data coming back from data-api
+library(httr) # http request libray, needed to communicate with the data-api
+library(glue) # useful string templating library
+```
+
+## Step 2: obtain and enter an authorisation token
+
+Create a token with [Data Api Auth](https://data-eidc.ceh.ac.uk/authentication) for the following licences: LICENCE_OGL.
+You will now have a token that looks like this (but with different values): 30dd8762241695749a32d2910d354695
+Enter it when prompted when running this code block:
+
+```{r}
+token = readline(prompt = 'Enter authorisation token:')
+```
+
+## Step 3: Set the base url
+
+This is the url to the Countryside Survey data api
+```{r}
+url = 'https://data-eidc.ceh.ac.uk/1.0/2069de82-619d-4751-9904-aec8500d07e6'
+```
+
+## Step 4: Setup functions for handling data requests
+
+These functions are the way requests for data are sent and responses received.
+They use r's 'httr' package to do this.
+
+```{r}
+
+# The /metadata endpoint
+cs_metadata <- function(query = {}) {
+  response = GET(
+    url = glue::glue('{url}/metadata'),
+    add_headers(Authorization = glue::glue('bearer {token}')),
+    query = query
+  )
+  # Pull out the 'content' from the response and turn into a string, 
+  # this will be the string representation of the json data
+  return(rawToChar(response$content))
+}
+
+# The /metadata/key/{key} endpoint
+cs_keyvalues <- function(key) {
+  response = GET(
+    url = glue::glue('{url}/metadata/key/{key}'),
+    add_headers(Authorization = glue::glue('bearer {token}'))
+  )
+  return(rawToChar(response$content))
+}
+
+# The /data endpoint
+cs_data <- function(bodyjson) {
+  response = POST(
+    url=glue::glue('{url}/data'),
+    add_headers(Authorization=glue::glue('bearer {token}'),Accept='text/csv','Content-Type'='application/json'),
+    body=bodyjson
+  )
+  return(rawToChar(response$content))
+}
+
+```
+
+## Metadata Request
+
+The Countryside Survey Data API has a metadata endpoint which allows you to automate your scripts without worrying about typos or if the metadata changes e.g. more data is added.
+
+The metadata is derived from the data EIDC catalogue https://catalogue.ceh.ac.uk/documents/2069de82-619d-4751-9904-aec8500d07e6
+
+```{r}
+# Example metadata query for all vegetation survey metadata in the year 2007
+# The json data is returned from the 'cs_metadata()' method as a string
+# prettify() allows a quick view of the data in a nice format
+
+prettify(cs_metadata(list(tags = "veget", years = "2007")))
+
+```
+## Metadata breakdown
+
+key | description
+ ---|---
+`acronym` | Shorthand for datasets
+`columns` | All the columns in the dataset, quicker than getting the data and interogating it, it also describe the format of each column
+`files` | Each dataset has different files, if you want to know where the data originally came from. This also describes the columes of the data
+`parent` | Each dataset is part of a parent dataset which you can go search for in the EIDC catalogue
+`parent_title` | The title of the parent dataset
+`tag` | A common tag for datasets which share similar data, this value is derived from the Catalogue
+`title` | The title of the dataset in the catalogue
+`uid` | The id of the dataset which you can use to find in the catalogue
+`words` | Keywords from the title which may be useful for understanding the dataset without having to read all the metadata (alone)
+`year` | The year the dataset was taken
+
+## Key values
+
+This endpoint lists all values for a given key.  
+
+```{r}
+
+#Using the function defined earlier, get all the years in the data.
+
+prettify(cs_keyvalues('year'))
+
+```
+```{r}
+
+#Using the function defined earlier, get all the tags in the data.
+
+prettify(cs_keyvalues('tag'))
+
+```
+
+
+## Data endpoint
+
+The data endpoint is where you can query the Data API to get the data in either JSON or CSV format. It automatically combines common data together and will attempt to merge datasets together. See metadata above for more info on this.
+
+```{r}
+
+# Data endpoint example 1
+# Pull out the data for just one type of survey type - eg linear and point features
+
+# Setup the json data that needs passing into the request
+json_body <- jsonlite::toJSON(list(metadata = list(tags = list('veget'))), auto_unbox = TRUE)
+data = cs_data(json_body)
+print(data)
+
+
+```
