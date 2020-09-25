@@ -162,5 +162,5 @@ df <- read.table(text = cs_data(json_body), sep =",", header = TRUE, stringsAsFa
 # Have a look at some of the data
 unique(df[,"SQUARE", drop=FALSE])
 unique(df[,"FEATURE", drop=FALSE])
-mean(df1[,"MEAN_ESTIMATE"], na.rm = TRUE)
+mean(df[,"MEAN_ESTIMATE"], na.rm = TRUE)
 ```
